@@ -8,9 +8,12 @@
 
 ## Usage
 
-1. Clone the repository.
-2. Copy `calendar.orthodox` to `~/.calendar` (or your desired location).
-3. Add the following line to your calendar file:
+1. Download the calendar:
+```sh
+curl -LJO https://raw.githubusercontent.com/OliverBrotchie/orthodox-calendar/main/calendar.orthodox
+```
+2. Copy `calendar.orthodox` to `~/.calendar`.
+3. Add the following line to the user's calendar:
 
 ```
 #include <calendar.orthodox>
@@ -24,3 +27,7 @@
 ```sh
 calendar -f ~/.calendar/calendar
 ```
+
+## Credits
+
+Most of the dates and feasts listed here are from [the calendar](https://www.goarch.org/chapel/calendar) of the Greek Orthodox Archdiocese of America.
