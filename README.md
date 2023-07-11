@@ -12,7 +12,10 @@
 ```sh
 curl -LJO https://raw.githubusercontent.com/OliverBrotchie/orthodox-calendar/main/calendar.orthodox
 ```
-2. Copy `calendar.orthodox` to `~/.calendar`.
+2. Move the file to the calendar directory:
+```sh
+mv calendar.orthodox ~/.calendar/calendar.orthodox
+```
 3. Add the following line to the user's calendar:
 
 ```
