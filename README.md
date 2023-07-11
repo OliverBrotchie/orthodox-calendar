@@ -9,7 +9,7 @@
 ## Usage
 
 1. Clone the repository.
-2. Coppy `calendar.orthodox` to `~/.calendar` (or your desired location).
+2. Copy `calendar.orthodox` to `~/.calendar` (or your desired location).
 3. Add the following line to your calendar file:
 
 ```
