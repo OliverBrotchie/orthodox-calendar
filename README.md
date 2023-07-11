@@ -1,6 +1,6 @@
 <div align="center">
 
-  <h1><code>✙ Orthodox Calendar ✙</code></h1>
+  <h1><code>☩ Orthodox Calendar ☩</code></h1>
 
   <strong>The Liturgical calendar of Saints, Readings and Fasts for the `calendar` command.</strong>
 
