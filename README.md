@@ -22,6 +22,14 @@ mv calendar.orthodox ~/.calendar/calendar.orthodox
 #include <calendar.orthodox>
 ```
 
+## Example Output
+
+```
+11 July	☩ St. Sophrony the Athonite of Essex, St. Euphemia the Great Martyr ☩	☩ Mark 5:24-34, St. Paul's Second Letter to the Corinthians 6:1-10, Luke 7:36-50 ☩
+12 July	☩ St. Paisios the Athonite ☩	☩ St. Paul's First Letter to the Corinthians 2:9-16; 3:1-8, Matthew 13:31-36 ☩
+12 July	✚ Strict Fast ✚
+```
+
 ## Troubleshooting 
 
  - If you have never used `calendar` before, you will need to create a calendar file for your user at `~/.calendar/calendar` and add `~/.calendar` to `$CALENDAR_DIR`.
