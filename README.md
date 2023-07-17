@@ -41,4 +41,4 @@ calendar -f ~/.calendar/calendar
 
 ## Credits
 
-Most of the dates and feasts listed here are from [the calendar](https://www.goarch.org/chapel/calendar) of the Greek Orthodox Archdiocese of America.
+Most feasts are from the Greek Orthodox Archdiocese of America's [calendar](https://www.goarch.org/chapel/calendar).
