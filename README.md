@@ -8,14 +8,25 @@
 
 ## Install
 
-Run the interactive installer — it asks three questions (which calendars,
-bold or not, install location):
+Run the interactive installer (uses [`gum`](https://github.com/charmbracelet/gum)
+pickers when a controlling terminal is present, falling back to text prompts):
 
 ```sh
 ./install.sh
 ```
 
+The installer asks, in order:
+
+1. **Summary or Detailed?** — Summary installs a one-line daily digest;
+   Detailed installs the full channels.
+2. **Which channels** (Detailed only) — space to toggle, enter to confirm.
+3. **Bold the main commemoration?**
+4. **Install directory** (default `~/.calendar`)
+
 Non-interactive shortcut: `./install.sh --all --bold ~/.calendar`
+
+> `gum` needs a real terminal. In a non-TTY context (CI, scripts, pipes) the
+> installer falls back to plain text prompts or sensible defaults.
 
 ## Files
 
@@ -26,11 +37,13 @@ The calendar is split into channels so you can include only what you want:
 | `calendar.saints` | Daily saints & feast commemorations (one per line) |
 | `calendar.fasts` | Fasting discipline (glyph + text) |
 | `calendar.readings` | Daily Scriptural readings (one per line) |
+| `calendar.vespers` | Great Feast Vigil Old-Testament readings |
 | `calendar.summary` | One-line digest: lead feast + fast + Gospel |
-| `calendar.orthodox` | Master file (`#include`s saints, fasts, readings) |
+| `calendar.orthodox` | Master file (`#include`s the selected channels) |
 
-`calendar.summary` is optional — point `calendar` at it with `-f` for a compact
-daily glance, or `#include` it in your master instead of the detailed channels.
+`calendar.summary` is an exclusive digest view — install it *instead of* the
+detailed channels (`--all`/plain install excludes it), or view it directly with
+`calendar -f calendar.summary`.
 
 ## Fasting
 
