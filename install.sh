@@ -2,29 +2,17 @@
 # install.sh — interactive installer for the Orthodox calendar files (BSB
 # `calendar(1)` command: macOS / FreeBSD / OpenBSD).
 #
-# Asks three questions:
-#   1. Which calendar channels to install.
-#   2. Whether to bold the main commemoration.
-#   3. Where to install (defaults to ~/.calendar).
+# Flow (uses `gum` for the pickers):
+#   1. Summary  vs  Detailed
+#   2. (Detailed) which channels — space to toggle, Enter to confirm
+#   3. Bold the main commemoration?  (gum confirm)
+#   4. Install directory
 #
 # Non-interactive shortcut:  ./install.sh --all [--bold] [DIR]
 
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-# Channel descriptions (keyed by short tag).
-TAGS=(saints fasts readings vespers summary)
-desc_for() {
-    case "$1" in
-        saints)   echo "Daily saints & feast commemorations" ;;
-        fasts)    echo "Fasting discipline (glyph + text)" ;;
-        readings) echo "Daily Scriptural readings" ;;
-        vespers)  echo "Great Feast Vigil Old-Testament readings" ;;
-        summary)  echo "One-line digest (feast + fast + Gospel)" ;;
-        *)        echo "" ;;
-    esac
-}
 
 # ---------------------------------------------------------------------------
 # Argument pre-scan (allows skipping prompts)
@@ -40,65 +28,88 @@ for a in "$@"; do
     esac
 done
 
-echo "Orthodox Calendar installer"
-echo "==========================="
-echo
-
-# 1. Which calendars?  "summary" is an exclusive digest view: selecting it
-# replaces the detailed channels rather than stacking alongside them.
-SELECTED=()
-if [ "$WANT_ALL" = 1 ]; then
-    SELECTED=(saints fasts readings vespers)
-else
-    echo "Select which calendars to install:"
-    echo "  (all)        all detailed channels (saints, fasts, readings, vespers)"
-    echo "  summary      one-line digest INSTEAD of the detailed channels"
-    for t in saints fasts readings vespers summary; do
-        printf '  %-12s — %s\n' "$t" "$(desc_for "$t")"
-    done
-    printf '\nTags (comma-separated, or "all" [default]): '
-    read -r choice
-    choice="$(echo "$choice" | tr -d '[:space:]' | tr 'A-Z' 'a-z')"
-    if [ -z "$choice" ] || [ "$choice" = "all" ]; then
-        SELECTED=(saints fasts readings vespers)
-    else
-        IFS=',' read -r -a SELECTED <<< "$choice"
-    fi
-fi
-
-# If "summary" is among the selections, it replaces the detail channels.
-for t in "${SELECTED[@]}"; do
-    if [ "$t" = "summary" ]; then
-        SELECTED=(summary)
-        break
-    fi
-done
-
-# 2. Bold? (skip if --bold already set by flag)
-if [ "$BOLD" = 0 ] && [ -z "$ARG_DIR" ]; then
-    printf '\nBold the main commemoration? [y/N] '
-    read -r b
-    case "$b" in
-        y|Y|yes|YES) BOLD=1 ;;
-        *) BOLD=0 ;;
+desc_for() {
+    case "$1" in
+        saints)   echo "Daily saints & feast commemorations" ;;
+        fasts)    echo "Fasting discipline (glyph + text)" ;;
+        readings) echo "Daily Scriptural readings" ;;
+        vespers)  echo "Great Feast Vigil Old-Testament readings" ;;
     esac
+}
+
+# ---------------------------------------------------------------------------
+# Stage 1 — summary vs detailed
+# ---------------------------------------------------------------------------
+MODE=""
+if [ "$WANT_ALL" = 1 ]; then
+    MODE="detailed"
+    SELECTED=(saints fasts readings vespers)
+elif command -v gum >/dev/null 2>&1; then
+    MODE="$(gum choose --height 4 'Summary — one-line digest' 'Detailed — full channels' 2>/dev/null | sed 's/ .*//' | tr 'A-Z' 'a-z')"
+else
+    printf 'Summary [S] or Detailed [D]? [D] '
+    read -r m
+    MODE="$(echo "${m:-d}" | tr 'A-Z' 'a-z')"
+    MODE="${MODE:0:1}"
+    [ "$MODE" = "s" ] && MODE="summary" || MODE="detailed"
 fi
 
-# 3. Directory (skip if given as an argument)
+# ---------------------------------------------------------------------------
+# Stage 2 — channel picker (detailed only)
+# ---------------------------------------------------------------------------
+# SELECTED may already be set by --all (stage 1); reset only when unset.
+if [ "$MODE" = "summary" ]; then
+    SELECTED=(summary)
+elif [ -z "${SELECTED[*]+x}" ]; then
+        if command -v gum >/dev/null 2>&1; then
+            SEL="$(gum choose --no-limit \
+                --header 'Select channels (space to toggle, enter to confirm)' \
+                'saints — Daily saints & feast commemorations' \
+                'fasts — Fasting discipline' \
+                'readings — Daily Scriptural readings' \
+                'vespers — Great Feast Vigil OT readings' 2>/dev/null)"
+            SELECTED=()
+            while IFS= read -r s; do
+                [ -n "$s" ] && SELECTED+=("${s%% *}")
+            done <<< "$SEL"
+            [ ${#SELECTED[@]} -gt 0 ] || SELECTED=(saints fasts readings vespers)
+        else
+            SELECTED=(saints fasts readings vespers)
+        fi
+fi
+
+# ---------------------------------------------------------------------------
+# Stage 3 — bold
+# ---------------------------------------------------------------------------
+if [ "$BOLD" = 0 ] && [ -z "$ARG_DIR" ]; then
+    if command -v gum >/dev/null 2>&1; then
+        gum confirm 'Bold the main commemoration?' && BOLD=1 || BOLD=0
+    else
+        printf 'Bold the main commemoration? [y/N] '
+        read -r b; case "$b" in y|Y|yes|YES) BOLD=1;; *) BOLD=0;; esac
+    fi
+fi
+# ---------------------------------------------------------------------------
+# Stage 4 — directory
+# ---------------------------------------------------------------------------
 if [ -n "$ARG_DIR" ]; then
     CAL_DIR="$ARG_DIR"
+elif command -v gum >/dev/null 2>&1; then
+    CAL_DIR="$(gum input --value "$HOME/.calendar" --placeholder 'Calendar directory' 2>/dev/null)"
+    CAL_DIR="${CAL_DIR:-$HOME/.calendar}"
 else
     printf 'Calendar directory [%s]: ' "$HOME/.calendar"
     read -r CAL_DIR
     CAL_DIR="${CAL_DIR:-$HOME/.calendar}"
 fi
 
+# ---------------------------------------------------------------------------
+# Install
+# ---------------------------------------------------------------------------
 mkdir -p "$CAL_DIR"
-
 echo
 echo "Installing to $CAL_DIR ..."
 
-INSTALLED=0
 for t in "${SELECTED[@]}"; do
     f="calendar.$t"
     [ -f "$REPO_DIR/$f" ] || { echo "  MISSING $f (run the generator first)"; continue; }
@@ -114,10 +125,9 @@ for t in "${SELECTED[@]}"; do
         cp "$REPO_DIR/$f" "$CAL_DIR/$f"
         echo "  installed $f"
     fi
-    INSTALLED=$((INSTALLED+1))
 done
 
-# Master .orthodox that includes only the selected channels.
+# Master .orthodox includes the selected channels.
 {
     echo "// Orthodox Calendar — master (generated by install.sh)"
     for t in "${SELECTED[@]}"; do
