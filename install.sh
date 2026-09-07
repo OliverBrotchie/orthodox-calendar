@@ -44,25 +44,35 @@ echo "Orthodox Calendar installer"
 echo "==========================="
 echo
 
-# 1. Which calendars?
+# 1. Which calendars?  "summary" is an exclusive digest view: selecting it
+# replaces the detailed channels rather than stacking alongside them.
 SELECTED=()
 if [ "$WANT_ALL" = 1 ]; then
-    SELECTED=("${TAGS[@]}")
+    SELECTED=(saints fasts readings vespers)
 else
     echo "Select which calendars to install:"
-    echo "  (all)        all of the below"
-    for t in "${TAGS[@]}"; do
+    echo "  (all)        all detailed channels (saints, fasts, readings, vespers)"
+    echo "  summary      one-line digest INSTEAD of the detailed channels"
+    for t in saints fasts readings vespers summary; do
         printf '  %-12s — %s\n' "$t" "$(desc_for "$t")"
     done
     printf '\nTags (comma-separated, or "all" [default]): '
     read -r choice
     choice="$(echo "$choice" | tr -d '[:space:]' | tr 'A-Z' 'a-z')"
     if [ -z "$choice" ] || [ "$choice" = "all" ]; then
-        SELECTED=("${TAGS[@]}")
+        SELECTED=(saints fasts readings vespers)
     else
         IFS=',' read -r -a SELECTED <<< "$choice"
     fi
 fi
+
+# If "summary" is among the selections, it replaces the detail channels.
+for t in "${SELECTED[@]}"; do
+    if [ "$t" = "summary" ]; then
+        SELECTED=(summary)
+        break
+    fi
+done
 
 # 2. Bold? (skip if --bold already set by flag)
 if [ "$BOLD" = 0 ] && [ -z "$ARG_DIR" ]; then
