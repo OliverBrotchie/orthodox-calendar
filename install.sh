@@ -28,8 +28,12 @@ for a in "$@"; do
     esac
 done
 
+# Use gum pickers only when gum is installed AND stdin is a real terminal;
+# otherwise fall back to plain text input (gum would block on /dev/tty).
 HAVE_GUM=0
-command -v gum >/dev/null 2>&1 && HAVE_GUM=1
+command -v gum >/dev/null 2>&1 && [ -t 0 ] && HAVE_GUM=1
+TTY=0
+[ -t 0 ] && TTY=1
 
 # ---------------------------------------------------------------------------
 # Stage 1 — summary vs detailed
@@ -38,14 +42,15 @@ MODE=""
 if [ "$WANT_ALL" = 1 ]; then
     MODE="detailed"
     SELECTED=(saints fasts readings vespers)
-elif [ "$HAVE_GUM" = 1 ]; then
-    MODE="$(gum choose --height 4 'Summary — one-line digest' 'Detailed — full channels' 2>/dev/null | sed 's/ .*//' | tr 'A-Z' 'a-z')"
-else
+elif [ "$TTY" = 1 ]; then
     printf 'Summary [S] or Detailed [D]? [D] '
     read -r m
     MODE="$(echo "${m:-d}" | tr 'A-Z' 'a-z')"
     MODE="${MODE:0:1}"
     [ "$MODE" = "s" ] && MODE="summary" || MODE="detailed"
+else
+    MODE="detailed"
+    SELECTED=(saints fasts readings vespers)
 fi
 
 # ---------------------------------------------------------------------------
@@ -72,15 +77,14 @@ elif [ -z "${SELECTED[*]+x}" ]; then
         fi
 fi
 
-# ---------------------------------------------------------------------------
-# Stage 3 — bold
-# ---------------------------------------------------------------------------
 if [ "$BOLD" = 0 ] && [ -z "$ARG_DIR" ]; then
-    if [ "$HAVE_GUM" = 1 ]; then
-        gum confirm 'Bold the main commemoration?' && BOLD=1 || BOLD=0
-    else
-        printf 'Bold the main commemoration? [y/N] '
-        read -r b; case "$b" in y|Y|yes|YES) BOLD=1;; *) BOLD=0;; esac
+    if [ "$TTY" = 1 ]; then
+        if [ "$HAVE_GUM" = 1 ]; then
+            gum confirm 'Bold the main commemoration?' && BOLD=1 || BOLD=0
+        else
+            printf 'Bold the main commemoration? [y/N] '
+            read -r b; case "$b" in y|Y|yes|YES) BOLD=1;; *) BOLD=0;; esac
+        fi
     fi
 fi
 # ---------------------------------------------------------------------------
@@ -88,18 +92,17 @@ fi
 # ---------------------------------------------------------------------------
 if [ -n "$ARG_DIR" ]; then
     CAL_DIR="$ARG_DIR"
-elif [ "$HAVE_GUM" = 1 ]; then
-    CAL_DIR="$(gum input --value "$HOME/.calendar" --placeholder 'Calendar directory' 2>/dev/null)"
+elif [ "$TTY" = 1 ]; then
+    if [ "$HAVE_GUM" = 1 ]; then
+        CAL_DIR="$(gum input --value "$HOME/.calendar" --placeholder 'Calendar directory' 2>/dev/null)"
+    else
+        printf 'Calendar directory [%s]: ' "$HOME/.calendar"
+        read -r CAL_DIR
+    fi
     CAL_DIR="${CAL_DIR:-$HOME/.calendar}"
 else
-    printf 'Calendar directory [%s]: ' "$HOME/.calendar"
-    read -r CAL_DIR
-    CAL_DIR="${CAL_DIR:-$HOME/.calendar}"
+    CAL_DIR="$HOME/.calendar"
 fi
-
-# ---------------------------------------------------------------------------
-# Install
-# ---------------------------------------------------------------------------
 mkdir -p "$CAL_DIR"
 echo
 echo "Installing to $CAL_DIR ..."
