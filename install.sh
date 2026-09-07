@@ -31,9 +31,9 @@ done
 # Use gum pickers only when gum is installed AND stdin is a real terminal;
 # otherwise fall back to plain text input (gum would block on /dev/tty).
 HAVE_GUM=0
-command -v gum >/dev/null 2>&1 && [ -t 0 ] && HAVE_GUM=1
+command -v gum >/dev/null 2>&1 && tty -s && HAVE_GUM=1
 TTY=0
-[ -t 0 ] && TTY=1
+tty -s && TTY=1
 
 # ---------------------------------------------------------------------------
 # Stage 1 — summary vs detailed
