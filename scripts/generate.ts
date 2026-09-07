@@ -204,11 +204,15 @@ function isStableReading(yd: DayData): boolean {
 const MONTHS = ["January","February","March","April","May","June","July", "August","September","October","November","December"];
 
 const FAST_EMOJI: Record<string, string> = {
-  "Strict Fast": "☦",
+  "Strict Fast": "☦️",
   "Fast Day (Wine and Oil Allowed)": "🍇",
   "Fast Day (Fish Allowed)": "🐟",
   "Fast Day (Dairy, Eggs, and Fish Allowed)": "🧀",
   "Fast Free": "",
+};
+
+const FAST_LABEL: Record<string, string> = {
+  "Strict Fast": "Strict Fast (No Allowance for Oil)",
 };
 
 const offsetLine = (off: number) => (off === 0 ? "Paskha" : `Paskha${off > 0 ? "+" : ""}${off}`);
@@ -316,7 +320,7 @@ function splitFeast(feast: string) {
     const { date, fast } = fasts.get(k)!;
     const emoji = FAST_EMOJI[fast];
     if (!emoji) continue;
-    out.push(`${date}\t${emoji} ${fast}`);
+    out.push(`${date}\t${emoji} ${FAST_LABEL[fast] ?? fast}`);
   }
   writeChannel("calendar.fasts", out);
 }
