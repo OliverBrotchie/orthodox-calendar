@@ -28,14 +28,8 @@ for a in "$@"; do
     esac
 done
 
-desc_for() {
-    case "$1" in
-        saints)   echo "Daily saints & feast commemorations" ;;
-        fasts)    echo "Fasting discipline (glyph + text)" ;;
-        readings) echo "Daily Scriptural readings" ;;
-        vespers)  echo "Great Feast Vigil Old-Testament readings" ;;
-    esac
-}
+HAVE_GUM=0
+command -v gum >/dev/null 2>&1 && HAVE_GUM=1
 
 # ---------------------------------------------------------------------------
 # Stage 1 — summary vs detailed
@@ -44,7 +38,7 @@ MODE=""
 if [ "$WANT_ALL" = 1 ]; then
     MODE="detailed"
     SELECTED=(saints fasts readings vespers)
-elif command -v gum >/dev/null 2>&1; then
+elif [ "$HAVE_GUM" = 1 ]; then
     MODE="$(gum choose --height 4 'Summary — one-line digest' 'Detailed — full channels' 2>/dev/null | sed 's/ .*//' | tr 'A-Z' 'a-z')"
 else
     printf 'Summary [S] or Detailed [D]? [D] '
@@ -61,7 +55,7 @@ fi
 if [ "$MODE" = "summary" ]; then
     SELECTED=(summary)
 elif [ -z "${SELECTED[*]+x}" ]; then
-        if command -v gum >/dev/null 2>&1; then
+        if [ "$HAVE_GUM" = 1 ]; then
             SEL="$(gum choose --no-limit \
                 --header 'Select channels (space to toggle, enter to confirm)' \
                 'saints — Daily saints & feast commemorations' \
@@ -82,7 +76,7 @@ fi
 # Stage 3 — bold
 # ---------------------------------------------------------------------------
 if [ "$BOLD" = 0 ] && [ -z "$ARG_DIR" ]; then
-    if command -v gum >/dev/null 2>&1; then
+    if [ "$HAVE_GUM" = 1 ]; then
         gum confirm 'Bold the main commemoration?' && BOLD=1 || BOLD=0
     else
         printf 'Bold the main commemoration? [y/N] '
@@ -94,7 +88,7 @@ fi
 # ---------------------------------------------------------------------------
 if [ -n "$ARG_DIR" ]; then
     CAL_DIR="$ARG_DIR"
-elif command -v gum >/dev/null 2>&1; then
+elif [ "$HAVE_GUM" = 1 ]; then
     CAL_DIR="$(gum input --value "$HOME/.calendar" --placeholder 'Calendar directory' 2>/dev/null)"
     CAL_DIR="${CAL_DIR:-$HOME/.calendar}"
 else
