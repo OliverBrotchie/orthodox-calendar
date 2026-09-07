@@ -98,32 +98,50 @@ interface ReadingSlot {
 //   "II Corinthians" / "2 Corinthians"     -> "2 Corinthians"
 //   "Acts of the Apostles" / "Acts"        -> "Acts"
 //   "The Holy Gospel according to ..." stays untouched (Gospel slot carries book)
+// Canonical short book name. The source uses several verbose forms; map them all.
 function canonBook(raw: string): string {
-  return raw
-    .replace(/^St\.?\s+Paul'?s?\s+/i, "")
-    .replace(/^(The\s+)?(Letter\s+)?(to\s+)?(the\s+)?/i, "")
-    .replace(/^(Second|First|Third)\s+Letter,?/i, (m) => ({ Second: "2 ", First: "1 ", Third: "3 " }[m.trim().split(/\s/)[0]] ?? m))
-    .replace(/^Second\s+/i, "2 ")
-    .replace(/^First\s+/i, "1 ")
-    .replace(/^Third\s+/i, "3 ")
-    .replace(/\bII\b/g, "2")
-    .replace(/\bIII\b/g, "3")
-    .replace(/\bIV\b/g, "4")
+  const s = raw.replace(/\s+/g, " ").trim();
+
+  // "St. James' Universal Letter" / "St. Peter's Second Universal Letter" / etc.
+  const catholic = s.match(/^St\.\s*(James'?s?|Peter'?s?|John'?s?|Jude'?s?)\s+(?:First|Second|Third|1st|2nd|3rd|I|II|III)?\s*Universal Letter$/i);
+  if (catholic) {
+    const ordinal = s.match(/\b(First|Second|Third|1st|2nd|3rd|I|II|III)\b/i);
+    const o = ordinal ? ({ first: "1", second: "2", third: "3", "1st": "1", "2nd": "2", "3rd": "3", i: "1", ii: "2", iii: "3" }[ordinal[1].toLowerCase()] ?? "") : "";
+    return `${o} ${catholic[1].replace(/'\w*$/, "")}`.trim();
+  }
+
+  // "St. Paul's [First/Second/Third] Letter to [the] <Book>"
+  const paul = s.match(/^St\.\s*Paul'?s?\s+(First|Second|Third|1st|2nd|3rd|I|II|III)?\s*Letter\s+to\s+(?:the\s+)?(.+)$/i);
+  if (paul) {
+    const book = paul[2].replace(/\s+/g, " ").trim();
+    const o = paul[1] ? ({ first: "1", second: "2", third: "3", "1st": "1", "2nd": "2", "3rd": "3", i: "1", ii: "2", iii: "3" }[paul[1].toLowerCase()] ?? "") : "";
+    return o ? `${o} ${book}` : book;
+  }
+
+  return s
     .replace(/^Acts of the Apostles$/i, "Acts")
-    .replace(/\s+/g, " ")
+    .replace(/^Jud\.$/i, "Jude")
+    .replace(/^I\b/, "1")
+    .replace(/^II\b/, "2")
+    .replace(/^III\b/, "3")
+    .replace(/^IV\b/, "4")
+    .replace(/^First\b/i, "1")
+    .replace(/^Second\b/i, "2")
+    .replace(/^Third\b/i, "3")
     .trim();
 }
-
 function extractReadings(desc: string): ReadingSlot[] {
   const out: ReadingSlot[] = [];
   for (const l of desc.split("\n")) {
     const m = l.trim().match(/^(Old Testament|Matins Gospel|Epistle|Gospel) Reading:\s*(.*)$/);
     if (!m) continue;
-    // Parse "book verse" — book is leading words, verse is trailing "N:N[-N]".
+    // Book = everything before the first "N:N" verse ref; verse = the rest.
     const ref = m[2].trim();
-    const vm = ref.match(/^(.*?)\s+(\d+\s*:\s*\d+(?:[-,]\s*\d+)*)\s*$/);
-    if (!vm) continue;
-    out.push({ type: m[1], book: canonBook(vm[1]), verse: vm[2].replace(/\s+/g, "") });
+    const iv = ref.search(/\d+\s*:\s*\d/);
+    if (iv < 0) continue;
+    const book = ref.slice(0, iv).trim();
+    const verse = ref.slice(iv).replace(/\s+/g, "");
+    out.push({ type: m[1], book: canonBook(book), verse });
   }
   return out;
 }
@@ -233,15 +251,23 @@ const seenFixed = new Set<string>();
 const seenMovable = new Set<string>();
 
 // join reading slots into a single display string, OT readings merged with "; "
+// Compact reading display: drop the repeated "Reading" word, use "·" as a
+// field separator so references are scannable at a glance.
+const READING_LABEL: Record<string, string> = {
+  "Old Testament": "OT",
+  "Matins Gospel": "Matins",
+  "Epistle": "Epistle",
+  "Gospel": "Gospel",
+};
+
 function formatSlots(slots: ReadingSlot[]): string {
   if (!slots.length) return "";
-  // group: Matins, Epistle, Gospel as named; OT as "Old Testament Reading: A; B; C"
   const ot = slots.filter((s) => s.type === "Old Testament");
   const others = slots.filter((s) => s.type !== "Old Testament");
   const parts: string[] = [];
-  if (ot.length) parts.push(`Old Testament Reading: ${ot.map((s) => `${s.book} ${s.verse}`).join("; ")}`);
-  for (const s of others) parts.push(`${s.type} Reading: ${s.book} ${s.verse}`);
-  return parts.join(", ");
+  if (ot.length) parts.push(`OT ${ot.map((s) => `${s.book} ${s.verse}`).join("; ")}`);
+  for (const s of others) parts.push(`${READING_LABEL[s.type] ?? s.type} ${s.book} ${s.verse}`);
+  return parts.join(" · ");
 }
 
 for (const yd of src) {
