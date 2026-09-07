@@ -8,14 +8,14 @@
 
 ## Install
 
-One command (copies the files to `~/.calendar`, the location `calendar(1)`
-searches, and wires up your master calendar):
+Run the interactive installer — it asks three questions (which calendars,
+bold or not, install location):
 
 ```sh
 ./install.sh
 ```
 
-Or use a custom dir: `./install.sh ~/.calendar`
+Non-interactive shortcut: `./install.sh --all --bold ~/.calendar`
 
 ## Files
 
