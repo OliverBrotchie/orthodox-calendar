@@ -1,3 +1,7 @@
 .vscode
-scripts
 .DS_Store
+scripts/out
+scripts/planner2022-en.ics
+scripts/ics-to-calendar.ts
+!scripts/generate.ts
+!2026-ics.ics
