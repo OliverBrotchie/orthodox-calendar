@@ -244,9 +244,9 @@ const canonicalYear = Object.entries(yearCounts)
   .sort((a, b) => b - a)[0];
 const src = days.filter((d) => d.year === canonicalYear);
 
-const saints = new Map<string, { date: string; feast: string }>();
+const saints = new Map<string, { date: string; lines: string[] }>();
 const fasts = new Map<string, { date: string; fast: string }>();
-const readings = new Map<string, { date: string; reading: string }>();
+const readings = new Map<string, { date: string; lines: string[] }>();
 const seenFixed = new Set<string>();
 const seenMovable = new Set<string>();
 
@@ -260,14 +260,14 @@ const READING_LABEL: Record<string, string> = {
   "Gospel": "Gospel",
 };
 
-function formatSlots(slots: ReadingSlot[]): string {
-  if (!slots.length) return "";
-  const ot = slots.filter((s) => s.type === "Old Testament");
-  const others = slots.filter((s) => s.type !== "Old Testament");
-  const parts: string[] = [];
-  if (ot.length) parts.push(`OT ${ot.map((s) => `${s.book} ${s.verse}`).join("; ")}`);
-  for (const s of others) parts.push(`${READING_LABEL[s.type] ?? s.type} ${s.book} ${s.verse}`);
-  return parts.join(" · ");
+// Each reading gets its own line (Matins/Epistle/Gospel; each OT book separately).
+function slotLines(slots: ReadingSlot[]): string[] {
+  const lines: string[] = [];
+  for (const s of slots) {
+    const tag = s.type === "Old Testament" ? "OT" : (READING_LABEL[s.type] ?? s.type);
+    lines.push(`${tag} ${s.book} ${s.verse}`);
+  }
+  return lines;
 }
 
 for (const yd of src) {
@@ -276,23 +276,23 @@ for (const yd of src) {
   const off = dayOfYear(yd.month, yd.day) - dayOfYear(pk.m, pk.d);
   const movable = isMovable(label);
 
-  const saintsText = all.length > 1 ? all.slice(1).join(", ") : "";
-  const commem = movable ? [label, saintsText].filter(Boolean).join(", ") : all.join(", ");
+  // Commemoration: lead feast first, each saint its own entry (rendered as a
+  // separate continuation line).
+  const commem = [label, ...all.slice(1)];
 
   const key = movable ? `off:${off}` : `${yd.month}-${yd.day}`;
   const dateStr = movable ? offsetLine(off) : `${MONTHS[yd.month - 1]} ${yd.day}`;
 
   if (movable ? !seenMovable.has(key) : !seenFixed.has(key)) {
     (movable ? seenMovable : seenFixed).add(key);
-    saints.set(key, { date: dateStr, feast: commem });
+    saints.set(key, { date: dateStr, lines: commem });
 
     if (yd.readings.length) {
       // Reading is keyed by Pascha offset when it drifts (cycle-determined),
-      // by civil date only when stable (fixed Great Feasts with their own proper).
       if (isStableReading(yd)) {
-        readings.set(key, { date: dateStr, reading: formatSlots(yd.readings) });
+        readings.set(key, { date: dateStr, lines: slotLines(yd.readings) });
       } else {
-        readings.set(`off:${off}`, { date: offsetLine(off), reading: formatSlots(yd.readings) });
+        readings.set(`off:${off}`, { date: offsetLine(off), lines: slotLines(yd.readings) });
       }
     }
     if (yd.fast) fasts.set(key, { date: dateStr, fast: yd.fast });
@@ -328,8 +328,9 @@ function splitFeast(feast: string) {
   ];
   const ks = [...saints.keys()].sort((a, b) => sortKey(a) - sortKey(b));
   for (const k of ks) {
-    const { date, feast } = saints.get(k)!;
-    out.push(`${date}\t${feast}`);
+    const { date, lines } = saints.get(k)!;
+    out.push(`${date}\t${lines[0]}`);
+    for (const extra of lines.slice(1)) out.push(`\t${extra}`);
   }
   writeChannel("calendar.saints", out);
 }
@@ -359,12 +360,34 @@ function splitFeast(feast: string) {
   ];
   const ks = [...readings.keys()].sort((a, b) => sortKey(a) - sortKey(b));
   for (const k of ks) {
-    const { date, reading } = readings.get(k)!;
-    out.push(`${date}\t${reading}`);
+    const { date, lines } = readings.get(k)!;
+    out.push(`${date}\t${lines[0]}`);
+    for (const extra of lines.slice(1)) out.push(`\t${extra}`);
   }
   writeChannel("calendar.readings", out);
 }
 
+// ---- summary ----
+{
+  // One line per day: lead feast + fast glyph + Gospel reference.
+  const out = [
+    "// Orthodox Calendar — Summary",
+    "// Lead feast · fasting glyph · Gospel. One line per day.",
+    "",
+  ];
+  const ks = [...saints.keys()].sort((a, b) => sortKey(a) - sortKey(b));
+  for (const k of ks) {
+    const s = saints.get(k)!;
+    const fast = fasts.get(k)?.fast;
+    const glyph = fast ? FAST_EMOJI[fast] ?? "" : "";
+    const gospel = readings.get(k)?.lines.find((l) => l.startsWith("Gospel "))?.replace(/^Gospel /, "");
+    const parts = [s.lines[0]];
+    if (glyph) parts.push(glyph);
+    if (gospel) parts.push(gospel);
+    out.push(`${s.date}\t${parts.join("  ")}`);
+  }
+  writeChannel("calendar.summary", out);
+}
 // ---- master ----
 {
   const out = [
@@ -373,7 +396,7 @@ function splitFeast(feast: string) {
     "#include <calendar.saints>",
     "#include <calendar.fasts>",
     "#include <calendar.readings>",
-    "",
+    "#include <calendar.vespers>",
   ];
   writeChannel("calendar.orthodox", out);
 }
